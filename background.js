@@ -34,6 +34,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         logAttempt(request.payload);
         sendResponse({ success: true });
     }
+    
+    if (request.action === 'provideFeedback') {
+        console.log('Background: Received feedback:', request.payload);
+        handleUserFeedback(request.payload);
+        sendResponse({ success: true });
+    }
 });
 
 async function analyzeTextHybrid(text, sendResponse) {
@@ -45,7 +51,8 @@ async function analyzeTextHybrid(text, sendResponse) {
         chrome.storage.local.get(['stats'], (data) => {
             const stats = data.stats || { total: 0, blocked: 0 };
             stats.total += 1;
-            if (analysis.is_malicious) {
+            // Only count as blocked if confidence is above 65%
+            if (analysis.is_malicious && analysis.confidence >= 0.65) {
                 stats.blocked += 1;
             }
             chrome.storage.local.set({ stats });
@@ -126,12 +133,57 @@ function analyzeWithHybridApproach(text) {
         'how to poison someone', 'how to poison food', 'how to poison drink',
         
         // Hacking and cyber attacks
-        'how to hack', 'how to hack into', 'how to hack computer',
-        'how to hack system', 'how to hack network', 'how to hack website',
+        'how to hack into', 'how to hack system', 'how to hack network', 'how to hack website',
         
         // Cheating and fraud
         'how to cheat', 'how to cheat in', 'how to cheat on',
-        'how to scam', 'how to fraud', 'how to steal'
+        'how to scam', 'how to fraud', 'how to steal',
+        
+        // Personal information extraction (asking for info)
+        'what is my email', 'what is my phone number', 'what is my address',
+        'what is my social security number', 'what is my ssn', 'what is my credit card',
+        'what is my password', 'what is my bank account', 'what is my personal information',
+        'what is my private information', 'what is my confidential information',
+        'what is my identity', 'what is my contact information', 'what is my phone',
+        'what is my email address', 'what is my home address', 'what is my date of birth',
+        'what is my birthday', 'what is my full name', 'what is my personal details',
+        'show me my email', 'show me my phone number', 'show me my address',
+        'show me my social security', 'show me my credit card', 'show me my password',
+        'show me my bank account', 'show me my personal info', 'show me my private info',
+        'tell me my email', 'tell me my phone number', 'tell me my address',
+        'tell me my social security', 'tell me my credit card', 'tell me my password',
+        'tell me my bank account', 'tell me my personal information', 'tell me my private information',
+        'give me my email', 'give me my phone number', 'give me my address',
+        'give me my social security', 'give me my credit card', 'give me my password',
+        'give me my bank account', 'give me my personal information', 'give me my private information',
+        
+        // Personal information being shared (sharing sensitive data)
+        'my email is', 'my phone is', 'my number is', 'my address is', 'my credit card is',
+        'my password is', 'my ssn is', 'my social security is', 'my bank account is',
+        'my personal info is', 'my private info is', 'my contact is', 'my birthday is',
+        'my full name is', 'my email address is', 'my phone number is', 'my home address is',
+        'my credit card number is', 'my social security number is', 'my personal details are',
+        'my private details are', 'my contact details are', 'my personal information is',
+        'my private information is', 'my confidential information is', 'my identity is',
+        
+        // Drug manufacturing and distribution
+        'how to make cocaine', 'how to make methamphetamine', 'how to make meth',
+        'how to produce heroin', 'how to make heroin', 'how to sell drugs',
+        'how to smuggle marijuana', 'how to smuggle drugs', 'how to hide cocaine',
+        'how to hide drugs', 'how to mix drugs', 'how to make lsd',
+        'how to cut heroin', 'how to buy illegal drugs', 'how to buy drugs online',
+        'how to grow opium', 'how to grow poppies', 'how to package meth',
+        'how to make ecstasy', 'how to distribute drugs', 'how to make crack cocaine',
+        'how to turn codeine into morphine', 'how to hide drugs in food',
+        'how to inject heroin', 'how to run a drug lab', 'how to make and sell drugs',
+        'recipe for making methamphetamine', 'chemicals to produce heroin',
+        'step-by-step instructions to make lsd', 'how to cut heroin with other substances',
+        'how to buy illegal drugs online safely', 'easiest way to grow opium poppies',
+        'how to package meth to avoid police detection', 'how to make ecstasy tablets',
+        'how to distribute drugs in a nightclub', 'how to prepare crack cocaine',
+        'process to turn codeine into morphine', 'how to hide drugs inside food packages',
+        'safest way to inject heroin', 'how to run a secret drug lab',
+        'fastest way to make and sell illegal drugs'
     ];
     
     for (const pattern of high_risk_patterns) {
@@ -352,9 +404,9 @@ function analyzeIntent(text) {
     
     // Malicious intent patterns
     const malicious_patterns = {
-        action_verbs: ['create', 'make', 'build', 'generate', 'produce', 'develop', 'hack', 'steal'],
-        harmful_objects: ['bomb', 'weapon', 'virus', 'malware', 'scam', 'deepfake', 'fake'],
-        instruction_words: ['how to', 'tutorial', 'guide', 'instructions', 'steps', 'method']
+        action_verbs: ['create', 'make', 'build', 'generate', 'produce', 'develop', 'steal'],
+        harmful_objects: ['bomb', 'weapon', 'virus', 'malware', 'scam', 'deepfake', 'fake', 'cocaine', 'heroin', 'meth', 'methamphetamine', 'lsd', 'ecstasy', 'crack', 'opium', 'drugs'],
+        instruction_words: ['how to', 'tutorial', 'guide', 'instructions', 'steps', 'method', 'recipe', 'process']
     };
     
     // Check malicious patterns
@@ -518,19 +570,68 @@ function logAttempt(payload) {
     console.log('Logging attempt:', payload);
     
     chrome.storage.local.get(['history'], (data) => {
+        if (chrome.runtime.lastError) {
+            console.error('Error getting history from storage:', chrome.runtime.lastError);
+            return;
+        }
+        
         const history = data.history || [];
-        history.unshift({
+        console.log('Current history length:', history.length);
+        
+        const newLogEntry = {
             ...payload,
             timestamp: Date.now()
-        });
+        };
+        
+        console.log('Adding new log entry:', newLogEntry);
+        history.unshift(newLogEntry);
         
         // Keep only last 100 entries
         if (history.length > 100) {
             history.splice(100);
         }
         
-        chrome.storage.local.set({ history });
-        console.log('History updated, new length:', history.length);
+        chrome.storage.local.set({ history }, () => {
+            if (chrome.runtime.lastError) {
+                console.error('Error saving history to storage:', chrome.runtime.lastError);
+            } else {
+                console.log('History successfully updated, new length:', history.length);
+            }
+        });
+    });
+}
+
+function handleUserFeedback(feedback) {
+    console.log('Handling user feedback:', feedback);
+    
+    chrome.storage.local.get(['userFeedback'], (data) => {
+        const userFeedback = data.userFeedback || {
+            falsePositives: [],
+            falseNegatives: [],
+            suggestions: []
+        };
+        
+        if (feedback.type === 'false_positive') {
+            userFeedback.falsePositives.push({
+                text: feedback.text,
+                timestamp: feedback.timestamp,
+                url: feedback.url
+            });
+            console.log('Added false positive feedback');
+        }
+        
+        // Keep only last 50 feedback entries
+        if (userFeedback.falsePositives.length > 50) {
+            userFeedback.falsePositives.splice(50);
+        }
+        
+        chrome.storage.local.set({ userFeedback }, () => {
+            if (chrome.runtime.lastError) {
+                console.error('Error saving feedback to storage:', chrome.runtime.lastError);
+            } else {
+                console.log('Feedback successfully saved');
+            }
+        });
     });
 }
 

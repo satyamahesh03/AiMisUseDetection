@@ -260,7 +260,10 @@ function observeElement(element) {
     
     element.setAttribute('data-ai-detector-monitored', 'true');
     
-    console.log('Monitoring element:', element.tagName, element.className);
+    // Initialize detection flag to false (default state)
+    contentRestoredFlags.set(element, false);
+    
+    console.log('Monitoring element:', element.tagName, element.className, 'Detection flag initialized to false');
     
     // Add input event listeners
     const events = ['input', 'keyup', 'paste', 'drop'];
@@ -364,6 +367,18 @@ function handleElementInput(e) {
             return;
         }
         
+        // Check if detection should be skipped for this element
+        if (shouldSkipDetection(element)) {
+            console.log('🚫 Detection skipped due to flag being true');
+            return;
+        }
+        
+        // Reset flag if element becomes empty
+        resetDetectionFlag(element);
+        
+        // Show current flag status for debugging
+        console.log('🔍 Detection flag status for element:', contentRestoredFlags.get(element));
+        
         lastAnalyzedText = text;
         console.log('=== Element input changed: ===', text.substring(0, 50));
         
@@ -375,16 +390,40 @@ function handleElementInput(e) {
             const obviousMalicious = [
                 'how to kill a person', 'how to kill someone', 'how to murder someone',
                 'how to make a bomb', 'how to create a bomb', 'how to build a bomb',
-                'how to hack into', 'how to hack computer', 'how to hack system',
+                'how to hack into', 'how to hack system',
                 'create nude image', 'make nude image', 'generate nude image',
                 'create porn video', 'make porn video', 'generate porn video',
                 'kill myself', 'how to commit suicide', 'how to end my life',
-                'how to poison someone', 'how to poison food'
+                'how to poison someone', 'how to poison food',
+                // Drug-related patterns
+                'how to make cocaine', 'how to make methamphetamine', 'how to make meth',
+                'how to produce heroin', 'how to make heroin', 'how to sell drugs',
+                'how to smuggle marijuana', 'how to smuggle drugs', 'how to hide cocaine',
+                'how to hide drugs', 'how to mix drugs', 'how to make lsd',
+                'how to cut heroin', 'how to buy illegal drugs', 'how to buy drugs online',
+                'how to grow opium', 'how to grow poppies', 'how to package meth',
+                'how to make ecstasy', 'how to distribute drugs', 'how to make crack cocaine',
+                'how to turn codeine into morphine', 'how to hide drugs in food',
+                'how to inject heroin', 'how to run a drug lab', 'how to make and sell drugs',
+                'recipe for making methamphetamine', 'chemicals to produce heroin',
+                'step-by-step instructions to make lsd', 'how to cut heroin with other substances',
+                'how to buy illegal drugs online safely', 'easiest way to grow opium poppies',
+                'how to package meth to avoid police detection', 'how to make ecstasy tablets',
+                'how to distribute drugs in a nightclub', 'how to prepare crack cocaine',
+                'process to turn codeine into morphine', 'how to hide drugs inside food packages',
+                'safest way to inject heroin', 'how to run a secret drug lab',
+                'fastest way to make and sell illegal drugs'
             ];
             
             const isObviouslyMalicious = obviousMalicious.some(pattern => lowerText.includes(pattern));
             
             if (isObviouslyMalicious) {
+                // Store the text and element for potential undo
+                lastClearedText = text;
+                lastClearedElement = element;
+                console.log('💾 Stored text for undo:', text.substring(0, 50) + '...');
+                console.log('💾 Stored element for undo:', element.tagName, element.className);
+                
                 // Immediately clear and block obvious malicious content
                 if (element.contentEditable === 'true' || element.contentEditable === '') {
                     element.textContent = '';
@@ -393,7 +432,8 @@ function handleElementInput(e) {
                     element.value = '';
                 }
                 
-                showNotification('Malicious content detected and cleared! (Quick detection)');
+                const categoryInfo = categorizeContent(text);
+                showNotification(`${categoryInfo.category} detected and blocked!\n\n Blocked-Content: "${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"\n\nClick undo to restore if this was a mistake.`, true, 10000, categoryInfo);
                 console.log('⚠️ Obvious malicious content detected and cleared immediately:', text);
                 lastAnalyzedText = '';
                 return;
@@ -422,6 +462,16 @@ function handleElementInput(e) {
             }
             
             if (analysis.result === 'malicious') {
+                // Check confidence level - only block if confidence is above 65%
+                const confidence = Math.round(analysis.confidence * 100);
+                
+                if (confidence >= 65) {
+                    // Store the text and element for potential undo
+                    lastClearedText = text;
+                    lastClearedElement = element;
+                    console.log('💾 Stored text for undo (ML):', text.substring(0, 50) + '...');
+                    console.log('💾 Stored element for undo (ML):', element.tagName, element.className);
+                    
                 // Clear dangerous content immediately
                 if (element.contentEditable === 'true' || element.contentEditable === '') {
                     element.textContent = '';
@@ -430,9 +480,9 @@ function handleElementInput(e) {
                     element.value = '';
                 }
                 
-                // Show notification with ML results
-                const confidence = Math.round(analysis.confidence * 100);
-                showNotification(`Malicious content detected and cleared! (${confidence}% confidence)`);
+                    // Show notification with ML results and undo option
+                    const categoryInfo = categorizeContent(text);
+                    showNotification(`${categoryInfo.category} blocked with ${confidence}% confidence!\n\n Blocked-Content: "${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"\n\nClick undo to restore if this was a mistake.`, true, 10000, categoryInfo);
                 
                 console.log('⚠️ Harmful content detected and cleared:', text);
                 
@@ -456,8 +506,29 @@ function handleElementInput(e) {
                 
                 // Clear the last analyzed text to allow future analysis
                 lastAnalyzedText = '';
+                } else {
+                    console.log(`⚠️ Malicious content detected but confidence too low (${confidence}% < 65%):`, text);
+                    // Don't block, just log for monitoring
+                    sendMessageToBackground({
+                        action: 'logAttempt',
+                        payload: {
+                            result: 'low_confidence',
+                            text: text,
+                            timestamp: Date.now(),
+                            url: window.location.href,
+                            ml_prediction: analysis.ml_prediction,
+                            confidence: analysis.confidence,
+                            malicious_probability: analysis.malicious_probability,
+                            elementType: element.tagName,
+                            isContentEditable: element.contentEditable === 'true'
+                        }
+                    }, function(response) {
+                        console.log('Low confidence log response:', response);
+                    });
+                }
             } else {
                 console.log('Content is safe, no visual feedback needed');
+                // Only log malicious content, not safe content
             }
         }).catch(error => {
             console.error('Error in ML analysis:', error);
@@ -468,8 +539,122 @@ function handleElementInput(e) {
 // Notification deduplication
 let lastNotificationMessage = '';
 let notificationTimeout = null;
+let lastClearedText = '';
+let lastClearedElement = null;
 
-function showNotification(message) {
+// Flag to track if content has been manually restored (undo was used)
+let contentRestoredFlags = new Map(); // Maps element to boolean flag
+
+// Content categorization system
+function categorizeContent(text) {
+    const lowerText = text.toLowerCase();
+    
+    // Personal details being shared (not requested)
+    if ((lowerText.includes('my email is') || lowerText.includes('my email:') || lowerText.includes('my email=') ||
+         lowerText.includes('my phone is') || lowerText.includes('my phone:') || lowerText.includes('my phone=') ||
+         lowerText.includes('my number is') || lowerText.includes('my number:') || lowerText.includes('my number=') ||
+         lowerText.includes('my address is') || lowerText.includes('my address:') || lowerText.includes('my address=') ||
+         lowerText.includes('my credit card is') || lowerText.includes('my credit card:') || lowerText.includes('my credit card=') ||
+         lowerText.includes('my password is') || lowerText.includes('my password:') || lowerText.includes('my password=') ||
+         lowerText.includes('my ssn is') || lowerText.includes('my ssn:') || lowerText.includes('my ssn=') ||
+         lowerText.includes('my social security is') || lowerText.includes('my social security:') || lowerText.includes('my social security=') ||
+         lowerText.includes('my bank account is') || lowerText.includes('my bank account:') || lowerText.includes('my bank account=') ||
+         lowerText.includes('my personal info is') || lowerText.includes('my personal info:') || lowerText.includes('my personal info=') ||
+         lowerText.includes('my private info is') || lowerText.includes('my private info:') || lowerText.includes('my private info=') ||
+         lowerText.includes('my contact is') || lowerText.includes('my contact:') || lowerText.includes('my contact=') ||
+         lowerText.includes('my birthday is') || lowerText.includes('my birthday:') || lowerText.includes('my birthday=') ||
+         lowerText.includes('my full name is') || lowerText.includes('my full name:') || lowerText.includes('my full name=')) ||
+        // Also detect patterns like "john@example.com" or "555-123-4567" after "my email" or "my phone"
+        (lowerText.includes('@') && (lowerText.includes('my email') || lowerText.includes('my email address'))) ||
+        (/\d{3}[-.]?\d{3}[-.]?\d{4}/.test(lowerText) && (lowerText.includes('my phone') || lowerText.includes('my number'))) ||
+        (/\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}/.test(lowerText) && (lowerText.includes('my credit card') || lowerText.includes('my card'))) ||
+        (/\d{3}-\d{2}-\d{4}/.test(lowerText) && (lowerText.includes('my ssn') || lowerText.includes('my social security')))) {
+        return {
+            category: 'Personal Details',
+            icon: '🔒',
+            color: '#28a745',
+            description: 'Personal or sensitive information being shared'
+        };
+    }
+    
+    // Violence and weapons
+    if (lowerText.includes('kill') || lowerText.includes('murder') || lowerText.includes('assassinate') || 
+        lowerText.includes('suicide') || lowerText.includes('die') || lowerText.includes('death')) {
+        return {
+            category: 'Violence',
+            icon: '🔪',
+            color: '#dc2626',
+            description: 'Violent or harmful content'
+        };
+    }
+    
+    // Bombs and explosives
+    if (lowerText.includes('bomb') || lowerText.includes('explosive') || lowerText.includes('blast') || 
+        lowerText.includes('detonate') || lowerText.includes('explode')) {
+        return {
+            category: 'Explosives',
+            icon: '💣',
+            color: '#ea580c',
+            description: 'Explosive or bomb-related content'
+        };
+    }
+    
+    // Face swapping and deepfakes
+    if (lowerText.includes('face swap') || lowerText.includes('face swapping') || 
+        lowerText.includes('deepfake') || lowerText.includes('fake video') || 
+        lowerText.includes('fake image') || lowerText.includes('swap face')) {
+        return {
+            category: 'Face Manipulation',
+            icon: '🎭',
+            color: '#7c3aed',
+            description: 'Face swapping or deepfake content'
+        };
+    }
+    
+    // Drugs and illegal substances
+    if (lowerText.includes('cocaine') || lowerText.includes('heroin') || lowerText.includes('meth') || 
+        lowerText.includes('drugs') || lowerText.includes('lsd') || lowerText.includes('ecstasy') ||
+        lowerText.includes('opium') || lowerText.includes('marijuana')) {
+        return {
+            category: 'Illegal Substances',
+            icon: '💊',
+            color: '#059669',
+            description: 'Illegal drug-related content'
+        };
+    }
+    
+    // Hacking and cyber attacks
+    if (lowerText.includes('hack') || lowerText.includes('cyber attack') || lowerText.includes('malware') || 
+        lowerText.includes('virus') || lowerText.includes('phishing')) {
+        return {
+            category: 'Cyber Security',
+            icon: '🖥️',
+            color: '#0891b2',
+            description: 'Hacking or cyber attack content'
+        };
+    }
+    
+    // Adult content
+    if (lowerText.includes('nude') || lowerText.includes('porn') || lowerText.includes('sexual') || 
+        lowerText.includes('adult content') || lowerText.includes('explicit')) {
+        return {
+            category: 'Adult Content',
+            icon: '🚫',
+            color: '#be185d',
+            description: 'Adult or explicit content'
+        };
+    }
+    
+    // Default category
+    return {
+        category: 'Malicious Content',
+        icon: '⚠️',
+        color: '#dc2626',
+        description: 'Potentially harmful content'
+    };
+}
+
+function showNotification(message, showUndo = false, duration = 10000, categoryInfo = null) {
     // Prevent duplicate notifications
     if (message === lastNotificationMessage) {
         return;
@@ -488,6 +673,16 @@ function showNotification(message) {
         }
     });
     
+    // Default colors if no category info
+    let bgColor = '#dc2626';
+    let shadowColor = 'rgba(220, 38, 38, 0.4)';
+    
+    // Use category-specific colors if available
+    if (categoryInfo) {
+        bgColor = categoryInfo.color;
+        shadowColor = `${categoryInfo.color}66`; // 40% opacity
+    }
+    
     // Create notification element
     const notification = document.createElement('div');
     notification.setAttribute('data-ai-detector-notification', 'true');
@@ -495,32 +690,122 @@ function showNotification(message) {
         position: fixed;
         top: 20px;
         right: 20px;
-        background: #ff4444;
+        background: linear-gradient(135deg, ${bgColor}, ${bgColor}dd);
         color: white;
-        padding: 15px;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 8px 25px ${shadowColor};
         z-index: 10000;
-        max-width: 300px;
-        font-family: Arial, sans-serif;
+        max-width: 400px;
+        min-width: 350px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 14px;
+        line-height: 1.5;
         animation: slideIn 0.3s ease;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
     `;
     
-    notification.innerHTML = `
-        <div style="display: flex; align-items: center;">
-            <span>${message}</span>
-            <button onclick="this.parentElement.parentElement.remove()" style="
-                margin-left: auto;
-                background: none;
-                border: none;
+    // Process message to handle line breaks and styling
+    const processedMessage = message.replace(/\n/g, '<br>');
+    
+    let notificationContent = `
+        <div style="display: flex; align-items: flex-start; margin-bottom: 12px;">
+            <div style="flex: 1;">
+                <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                    <span style="font-weight: 600; font-size: 16px;">
+                        ${categoryInfo ? categoryInfo.icon + ' ' + categoryInfo.category : '⚠️ Alert'}
+                    </span>
+                    ${categoryInfo ? `<span style="margin-left: 8px; font-size: 12px; opacity: 0.8; background: rgba(255, 255, 255, 0.1); padding: 2px 6px; border-radius: 4px;">${categoryInfo.description}</span>` : ''}
+                </div>
+                <div style="font-size: 14px; line-height: 1.6; opacity: 0.95;">
+                    ${processedMessage}
+                </div>
+            </div>
+            <button id="close-notification" style="
+                margin-left: 12px;
+                background: rgba(255, 255, 255, 0.1);
+                border: 1px solid rgba(255, 255, 255, 0.2);
                 color: white;
                 font-size: 18px;
                 cursor: pointer;
-                padding: 0;
+                padding: 4px 8px;
+                border-radius: 6px;
+                transition: all 0.2s;
+                min-width: 32px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
             ">×</button>
         </div>
     `;
+    
+    // Add undo button if requested
+    if (showUndo && lastClearedText && lastClearedElement) {
+        notificationContent += `
+            <div style="display: flex; gap: 12px; margin-top: 16px;">
+                <button id="undo-button" style="
+                    background: rgba(255, 255, 255, 0.15);
+                    border: 1px solid rgba(255, 255, 255, 0.25);
+                    color: white;
+                    padding: 10px 16px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-size: 13px;
+                    font-weight: 600;
+                    transition: all 0.2s;
+                    flex: 1;
+                    text-align: center;
+                ">
+                    ↩ Restore Content
+                </button>
+            </div>
+        `;
+    }
+    
+    notification.innerHTML = notificationContent;
+    
+    // Add event listeners after creating the notification
+    const closeButton = notification.querySelector('#close-notification');
+    if (closeButton) {
+        closeButton.addEventListener('click', () => {
+            notification.remove();
+        });
+    }
+    
+    const undoButton = notification.querySelector('#undo-button');
+    if (undoButton) {
+        undoButton.addEventListener('click', () => {
+            undoClear();
+        });
+        
+        // Add hover effects
+        undoButton.addEventListener('mouseenter', () => {
+            undoButton.style.background = 'rgba(255, 255, 255, 0.25)';
+            undoButton.style.transform = 'translateY(-1px)';
+            undoButton.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)';
+        });
+        
+        undoButton.addEventListener('mouseleave', () => {
+            undoButton.style.background = 'rgba(255, 255, 255, 0.15)';
+            undoButton.style.transform = 'translateY(0)';
+            undoButton.style.boxShadow = 'none';
+        });
+    }
+    
+    // Add hover effects for close button
+    if (closeButton) {
+        closeButton.addEventListener('mouseenter', () => {
+            closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+            closeButton.style.transform = 'scale(1.1)';
+        });
+        
+        closeButton.addEventListener('mouseleave', () => {
+            closeButton.style.background = 'rgba(255, 255, 255, 0.1)';
+            closeButton.style.transform = 'scale(1)';
+        });
+    }
     
     // Add CSS animation
     const style = document.createElement('style');
@@ -537,13 +822,129 @@ function showNotification(message) {
     // Store current message
     lastNotificationMessage = message;
     
-    // Auto-remove after 3 seconds (faster)
+    // Auto-remove after specified duration
     notificationTimeout = setTimeout(() => {
         if (notification.parentNode) {
             notification.remove();
         }
         lastNotificationMessage = '';
-    }, 3000);
+    }, duration);
+}
+
+// Function to undo the clear action
+function undoClear() {
+    console.log('🔄 Undo button clicked!');
+    console.log('📝 Last cleared text:', lastClearedText);
+    console.log('🔍 Last cleared element:', lastClearedElement);
+    
+    if (lastClearedText && lastClearedElement) {
+        console.log('✅ Restoring text to element:', lastClearedElement.tagName, lastClearedElement.className);
+        
+        // Restore the text
+        if (lastClearedElement.contentEditable === 'true' || lastClearedElement.contentEditable === '') {
+            console.log('📝 Restoring to contentEditable element');
+            lastClearedElement.textContent = lastClearedText;
+            lastClearedElement.innerHTML = lastClearedText;
+        } else {
+            console.log('📝 Restoring to input/textarea element');
+            lastClearedElement.value = lastClearedText;
+        }
+        
+        console.log('✅ Text restored successfully:', lastClearedText);
+        
+        // Set the flag to true for this element (content restored, no more detection)
+        contentRestoredFlags.set(lastClearedElement, true);
+        console.log('🚫 Detection disabled for this element (flag set to true)');
+        
+        // Show success notification for 10 seconds
+        const successCategory = {
+            category: 'Success',
+            icon: '✅',
+            color: '#059669',
+            description: 'Content restored successfully'
+        };
+        showNotification('Content Restored Successfully!\n\nThe blocked content has been returned to the input field.\n\nYou can now continue typing without detection interference.', false, 10000, successCategory);
+        
+        // Clear the stored data
+        lastClearedText = '';
+        lastClearedElement = null;
+        
+        // Remove the current notification
+        const notification = document.querySelector('[data-ai-detector-notification]');
+        if (notification) {
+            notification.remove();
+        }
+    } else {
+        console.error('❌ No text or element to restore!');
+        console.log('lastClearedText:', lastClearedText);
+        console.log('lastClearedElement:', lastClearedElement);
+    }
+}
+
+// Function to check if detection should be skipped for an element
+function shouldSkipDetection(element) {
+    const flag = contentRestoredFlags.get(element);
+    if (flag === true) {
+        console.log('🚫 Detection skipped for element (flag is true):', element.tagName, element.className);
+        return true;
+    }
+    return false;
+}
+
+// Function to reset flag when element becomes empty
+function resetDetectionFlag(element) {
+    const currentText = extractTextFromElement(element);
+    if (!currentText || currentText.trim() === '') {
+        contentRestoredFlags.set(element, false);
+        console.log('🔄 Detection re-enabled for element (field is empty):', element.tagName, element.className);
+    }
+}
+
+// Function to show current flag status for debugging
+function showFlagStatus() {
+    console.log('📊 Current Detection Flag Status:');
+    contentRestoredFlags.forEach((flag, element) => {
+        const text = extractTextFromElement(element);
+        const isEmpty = !text || text.trim() === '';
+        console.log(`  ${element.tagName}.${element.className}: flag=${flag}, empty=${isEmpty}`);
+    });
+}
+
+// Function to manually reset all flags (for testing)
+function resetAllFlags() {
+    contentRestoredFlags.clear();
+    console.log('🔄 All detection flags have been reset');
+}
+
+// Function to provide feedback
+function provideFeedback(feedbackType) {
+    if (lastClearedText) {
+        // Send feedback to background script
+        sendMessageToBackground({
+            action: 'provideFeedback',
+            payload: {
+                type: feedbackType,
+                text: lastClearedText,
+                timestamp: Date.now(),
+                url: window.location.href
+            }
+        }, function(response) {
+            console.log('Feedback response:', response);
+        });
+        
+        // Show feedback confirmation for 10 seconds
+        showNotification('Thank you for your feedback!', false, 10000);
+        
+        // Clear the stored data
+        lastClearedText = '';
+        lastClearedElement = null;
+        
+        // Remove the current notification
+        const notification = document.querySelector('[data-ai-detector-notification]');
+        if (notification) {
+            notification.remove();
+        }
+    }
 }
 
 // Global variable to track protection status
@@ -618,3 +1019,23 @@ if (document.readyState === 'loading') {
 } else {
     initExtension();
 }
+
+// Make functions available globally for testing
+window.aiDetectorDebug = {
+    showFlagStatus: showFlagStatus,
+    resetAllFlags: resetAllFlags,
+    contentRestoredFlags: contentRestoredFlags,
+    // Quick function to check current element's flag
+    checkCurrentElement: () => {
+        const activeElement = document.activeElement;
+        if (activeElement) {
+            const flag = contentRestoredFlags.get(activeElement);
+            console.log('🔍 Current active element:', activeElement.tagName, activeElement.className);
+            console.log('🚩 Detection flag status:', flag);
+            return flag;
+        } else {
+            console.log('❌ No active element found');
+            return null;
+        }
+    }
+};
