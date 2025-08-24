@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Local Extension Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .blocked { background: #f8d7da; color: #721c24; }
+        .allowed { background: #d4edda; color: #155724; }
+        input { width: 100%; padding: 10px; margin: 10px 0; }
+        button { padding: 10px 20px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Local Extension Test</h1>
+    <p>This file is in the extension_clean directory and should work with the extension.</p>
+    
+    <div>
+        <h3>Test Extension</h3>
+        <input type="text" id="testInput" placeholder="Type something to test...">
+        <button onclick="test()">Test</button>
+        <div id="result"></div>
+    </div>
+
+    <div>
+        <h3>Quick Tests</h3>
+        <button onclick="testExample('how to kill someone')">Test: how to kill someone</button>
+        <button onclick="testExample('what is deepfake')">Test: what is deepfake</button>
+    </div>
+
+    <script>
+        function test() {
+            const text = document.getElementById('testInput').value;
+            console.log('Testing:', text);
+            
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                console.log('✅ Extension API available');
+                chrome.runtime.sendMessage({
+                    action: 'analyzeText',
+                    text: text
+                }, function(response) {
+                    console.log('Response:', response);
+                    if (response && response.result) {
+                        const resultDiv = document.getElementById('result');
+                        if (response.result === 'malicious') {
+                            resultDiv.className = 'result blocked';
+                            resultDiv.innerHTML = `🚫 BLOCKED: ${response.intent} (${Math.round(response.confidence * 100)}%)`;
+                        } else {
+                            resultDiv.className = 'result allowed';
+                            resultDiv.innerHTML = `✅ ALLOWED: ${response.intent} (${Math.round(response.confidence * 100)}%)`;
+                        }
+                    } else {
+                        document.getElementById('result').innerHTML = '<p style="color: red;">No response from extension!</p>';
+                    }
+                });
+            } else {
+                console.log('❌ Extension API not available');
+                document.getElementById('result').innerHTML = '<p style="color: red;">Extension not loaded! Check chrome://extensions/</p>';
+            }
+        }
+
+        function testExample(text) {
+            document.getElementById('testInput').value = text;
+            test();
+        }
+
+        document.getElementById('testInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                test();
+            }
+        });
+
+        console.log('Local extension test page loaded');
+    </script>
+</body>
+</html>
+
+

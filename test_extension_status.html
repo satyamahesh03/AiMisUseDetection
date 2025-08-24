@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extension Status Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Extension Status Test</h1>
+    
+    <div id="status" class="status info">Checking extension status...</div>
+    
+    <div>
+        <h3>Test Functions:</h3>
+        <button onclick="testBackgroundScript()">Test Background Script</button>
+        <button onclick="testStorage()">Test Storage</button>
+        <button onclick="testContentScript()">Test Content Script</button>
+        <button onclick="testAnalysis()">Test Text Analysis</button>
+    </div>
+    
+    <div id="results"></div>
+
+    <script>
+        function addResult(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.textContent = message;
+            results.appendChild(div);
+        }
+        
+        function testBackgroundScript() {
+            addResult('Testing background script communication...', 'info');
+            
+            if (typeof chrome === 'undefined' || !chrome.runtime) {
+                addResult('❌ Chrome extension API not available', 'error');
+                return;
+            }
+            
+            chrome.runtime.sendMessage({
+                action: 'test',
+                message: 'Hello from test page'
+            }, function(response) {
+                if (chrome.runtime.lastError) {
+                    addResult(`❌ Background script error: ${chrome.runtime.lastError.message}`, 'error');
+                } else if (response) {
+                    addResult(`✅ Background script working: ${response.status}`, 'success');
+                } else {
+                    addResult('❌ No response from background script', 'error');
+                }
+            });
+        }
+        
+        function testStorage() {
+            addResult('Testing storage access...', 'info');
+            
+            try {
+                chrome.storage.local.get(['protectionEnabled', 'stats'], function(data) {
+                    if (chrome.runtime.lastError) {
+                        addResult(`❌ Storage error: ${chrome.runtime.lastError.message}`, 'error');
+                    } else {
+                        addResult(`✅ Storage working: protection=${data.protectionEnabled}, stats=${JSON.stringify(data.stats)}`, 'success');
+                    }
+                });
+            } catch (error) {
+                addResult(`❌ Storage exception: ${error.message}`, 'error');
+            }
+        }
+        
+        function testContentScript() {
+            addResult('Testing content script...', 'info');
+            
+            // Check if content script is loaded
+            const contentScriptLoaded = document.querySelector('[data-ai-detector-monitored]') !== null;
+            if (contentScriptLoaded) {
+                addResult('✅ Content script is monitoring this page', 'success');
+            } else {
+                addResult('⚠️ Content script not detected on this page (may be normal)', 'info');
+            }
+        }
+        
+        function testAnalysis() {
+            addResult('Testing text analysis...', 'info');
+            
+            chrome.runtime.sendMessage({
+                action: 'analyzeText',
+                text: 'how to steal'
+            }, function(response) {
+                if (chrome.runtime.lastError) {
+                    addResult(`❌ Analysis error: ${chrome.runtime.lastError.message}`, 'error');
+                } else if (response) {
+                    addResult(`✅ Analysis working: ${response.result} (${Math.round(response.confidence * 100)}% confidence)`, 'success');
+                } else {
+                    addResult('❌ No analysis response', 'error');
+                }
+            });
+        }
+        
+        // Check initial status
+        setTimeout(() => {
+            const statusDiv = document.getElementById('status');
+            if (typeof chrome === 'undefined' || !chrome.runtime) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Chrome extension API not available. Make sure the extension is loaded.';
+            } else {
+                statusDiv.className = 'status success';
+                statusDiv.textContent = '✅ Extension API detected. Run tests to verify functionality.';
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
+
+

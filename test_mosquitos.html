@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mosquitos Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-input {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .safe {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .malicious {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🦟 Mosquitos Test - Should NOT Clear</h1>
+    
+    <div>
+        <h3>Test Input:</h3>
+        <input type="text" id="testInput" class="test-input" placeholder="Type 'how to kill mosquitos' here...">
+        <button onclick="testText()">Test Analysis</button>
+    </div>
+    
+    <div id="result" class="result info">Ready to test...</div>
+    
+    <div>
+        <h3>Quick Tests:</h3>
+        <button onclick="testCase('how to kill mosquitos')">Test: how to kill mosquitos</button>
+        <button onclick="testCase('how to kill bugs')">Test: how to kill bugs</button>
+        <button onclick="testCase('how to kill a person')">Test: how to kill a person</button>
+        <button onclick="testCase('what is a deepfake')">Test: what is a deepfake</button>
+    </div>
+
+    <script>
+        function testCase(text) {
+            document.getElementById('testInput').value = text;
+            testText();
+        }
+        
+        function testText() {
+            const text = document.getElementById('testInput').value.trim();
+            if (!text) {
+                document.getElementById('result').innerHTML = 'Please enter some text to test.';
+                return;
+            }
+            
+            // Check if extension is available
+            if (typeof chrome === 'undefined' || !chrome.runtime) {
+                document.getElementById('result').innerHTML = 
+                    '<div class="result">❌ Chrome extension API not available. Make sure the extension is loaded.</div>';
+                return;
+            }
+            
+            // Send message to background script
+            chrome.runtime.sendMessage({
+                action: 'analyzeText',
+                text: text
+            }, function(response) {
+                if (chrome.runtime.lastError) {
+                    document.getElementById('result').innerHTML = 
+                        '<div class="result">❌ Error: ' + chrome.runtime.lastError.message + '</div>';
+                    return;
+                }
+                
+                if (response) {
+                    const resultClass = response.result === 'malicious' ? 'malicious' : 'safe';
+                    const resultText = response.result === 'malicious' ? '🚫 MALICIOUS' : '✅ SAFE';
+                    
+                    document.getElementById('result').innerHTML = `
+                        <div class="result ${resultClass}">
+                            <h3>${resultText}</h3>
+                            <p><strong>Text:</strong> ${text}</p>
+                            <p><strong>Confidence:</strong> ${Math.round(response.confidence * 100)}%</p>
+                            <p><strong>Intent:</strong> ${response.intent}</p>
+                            <p><strong>Reasoning:</strong> ${response.reasoning.join(', ')}</p>
+                            <p><strong>Risk Level:</strong> ${response.risk_level}</p>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('result').innerHTML = 
+                        '<div class="result">❌ No response from extension</div>';
+                }
+            });
+        }
+        
+        // Auto-test on page load
+        setTimeout(() => {
+            testCase('how to kill mosquitos');
+        }, 1000);
+    </script>
+</body>
+</html>
+
+

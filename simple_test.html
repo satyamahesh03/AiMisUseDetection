@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Extension Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-input {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .safe { background: #d4edda; color: #155724; }
+        .malicious { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Simple Extension Test</h1>
+    
+    <div>
+        <h3>Test Input:</h3>
+        <input type="text" id="testInput" class="test-input" placeholder="Type here to test...">
+    </div>
+    
+    <div id="result" class="result info">Type something to test the extension...</div>
+    
+    <div>
+        <h3>Quick Tests:</h3>
+        <button onclick="testCase('how to kill mosquitos')">Safe: how to kill mosquitos</button>
+        <button onclick="testCase('how to kill a person')">Malicious: how to kill a person</button>
+        <button onclick="testCase('my credit card number is 1234-5678-9012-3456')">Personal Info</button>
+    </div>
+
+    <script>
+        function testCase(text) {
+            document.getElementById('testInput').value = text;
+            // Trigger input event to test extension
+            const event = new Event('input', { bubbles: true });
+            document.getElementById('testInput').dispatchEvent(event);
+        }
+        
+        // Monitor the input field
+        document.getElementById('testInput').addEventListener('input', function(e) {
+            const text = e.target.value;
+            if (text.length > 5) {
+                document.getElementById('result').innerHTML = 
+                    `<div class="result info">Testing: "${text}" - Extension should analyze this...</div>`;
+            }
+        });
+        
+        // Check if extension is loaded
+        setTimeout(() => {
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                document.getElementById('result').innerHTML = 
+                    '<div class="result safe">✅ Extension detected! Try typing malicious content to test.</div>';
+            } else {
+                document.getElementById('result').innerHTML = 
+                    '<div class="result malicious">❌ Extension not detected. Make sure it\'s loaded in chrome://extensions/</div>';
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
+
+

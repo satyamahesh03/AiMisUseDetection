@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Extension Test</title>
+</head>
+<body>
+    <h1>Extension Test</h1>
+    <input type="text" id="testInput" placeholder="Type something...">
+    <button onclick="test()">Test</button>
+    <div id="result"></div>
+
+    <script>
+        function test() {
+            const text = document.getElementById('testInput').value;
+            console.log('Testing:', text);
+            
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                console.log('✅ Extension API available');
+                chrome.runtime.sendMessage({
+                    action: 'analyzeText',
+                    text: text
+                }, function(response) {
+                    console.log('Response:', response);
+                    document.getElementById('result').innerHTML = 
+                        `<p>Result: ${JSON.stringify(response, null, 2)}</p>`;
+                });
+            } else {
+                console.log('❌ Extension API not available');
+                document.getElementById('result').innerHTML = 
+                    '<p style="color: red;">Extension not loaded!</p>';
+            }
+        }
+    </script>
+</body>
+</html>
+
+

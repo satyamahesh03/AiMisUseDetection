@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extension Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .malicious {
+            background: #ffe6e6;
+            border-left: 4px solid #dc3545;
+        }
+        .safe {
+            background: #e6ffe6;
+            border-left: 4px solid #28a745;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Extension Test Page</h1>
+    
+    <div>
+        <h3>Test the Extension:</h3>
+        <input type="text" id="testInput" class="test-input" placeholder="Enter text to test...">
+        <button onclick="testExtension()">Test</button>
+    </div>
+    
+    <div id="result"></div>
+    
+    <div>
+        <h3>Quick Tests:</h3>
+        <button onclick="quickTest('how to kill a person')">Malicious Test</button>
+        <button onclick="quickTest('how to kill mosquitos')">Safe Test</button>
+    </div>
+
+    <script>
+        function quickTest(text) {
+            document.getElementById('testInput').value = text;
+            testExtension();
+        }
+        
+        function testExtension() {
+            const text = document.getElementById('testInput').value.trim();
+            if (!text) {
+                alert('Please enter some text to test.');
+                return;
+            }
+            
+            // Check if extension is available
+            if (typeof chrome === 'undefined' || !chrome.runtime) {
+                document.getElementById('result').innerHTML = 
+                    '<div class="result">❌ Chrome extension API not available. Make sure the extension is loaded.</div>';
+                return;
+            }
+            
+            // Send message to background script
+            chrome.runtime.sendMessage({
+                action: 'analyzeText',
+                text: text
+            }, function(response) {
+                if (chrome.runtime.lastError) {
+                    document.getElementById('result').innerHTML = 
+                        '<div class="result">❌ Error: ' + chrome.runtime.lastError.message + '</div>';
+                    return;
+                }
+                
+                if (response) {
+                    const resultClass = response.result === 'malicious' ? 'malicious' : 'safe';
+                    const resultText = response.result === 'malicious' ? '🚫 MALICIOUS' : '✅ SAFE';
+                    
+                    document.getElementById('result').innerHTML = `
+                        <div class="result ${resultClass}">
+                            <h3>${resultText}</h3>
+                            <p><strong>Text:</strong> ${text}</p>
+                            <p><strong>Confidence:</strong> ${Math.round(response.confidence * 100)}%</p>
+                            <p><strong>Intent:</strong> ${response.intent}</p>
+                            <p><strong>Reasoning:</strong> ${response.reasoning.join(', ')}</p>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('result').innerHTML = 
+                        '<div class="result">❌ No response from extension</div>';
+                }
+            });
+        }
+        
+        // Test if extension is available on page load
+        if (typeof chrome !== 'undefined' && chrome.runtime) {
+            chrome.runtime.sendMessage({action: 'test', message: 'Hello'}, function(response) {
+                if (response) {
+                    console.log('Extension is working:', response);
+                } else {
+                    console.log('Extension not responding');
+                }
+            });
+        } else {
+            console.log('Chrome extension API not available');
+        }
+    </script>
+</body>
+</html>
+
+

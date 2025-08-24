@@ -1,0 +1,38 @@
+{
+  "name": "vector-operations-ai-detector",
+  "version": "1.0.0",
+  "description": "Vector operations and AI misuse detection using cosine similarity in JavaScript",
+  "main": "vector_server_example.js",
+  "scripts": {
+    "start": "node vector_server_example.js",
+    "dev": "nodemon vector_server_example.js",
+    "test": "node -e \"require('./vector_utils.js'); console.log('✅ Vector utilities loaded successfully')\""
+  },
+  "keywords": [
+    "vector",
+    "cosine-similarity",
+    "ai-detection",
+    "machine-learning",
+    "javascript",
+    "nodejs"
+  ],
+  "author": "AI Assistant",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/vector-operations-ai-detector.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/vector-operations-ai-detector/issues"
+  },
+  "homepage": "https://github.com/yourusername/vector-operations-ai-detector#readme"
+}

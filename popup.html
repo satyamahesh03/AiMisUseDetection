@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Misuse Detector</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="header">
+        <h1>🛡️ AI Misuse Detector</h1>
+        <div class="subtitle">Protecting against malicious AI prompts</div>
+    </div>
+
+    <div class="main-content">
+        <div class="status-section">
+            <div class="status-header">
+                <span class="status-label">Protection Status</span>
+                <div class="status-indicator" id="statusIndicator"></div>
+            </div>
+            <button class="toggle-btn" id="toggleProtection">Enable Protection</button>
+        </div>
+
+        <div class="stats-section">
+            <div class="stats-header">📊 Detection Statistics</div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-number" id="totalScans">0</span>
+                    <span class="stat-label">Total Scans</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number" id="blockedCount">0</span>
+                    <span class="stat-label">Blocked</span>
+                </div>
+            </div>
+            <div class="success-rate">
+                <div class="rate-number" id="successRate">0%</div>
+                <div class="rate-label">Success Rate</div>
+            </div>
+        </div>
+
+        <!-- Activity Section -->
+        <div class="activity-section">
+            <div class="activity-header">
+                <span class="activity-title">📋 Recent Activity</span>
+                <button class="view-logs-btn" id="viewLogs">View Logs</button>
+            </div>
+            <div class="logs-container" id="logs">
+                <!-- Log items will be dynamically added here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vector Operations & Cosine Similarity Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            background: #fafafa;
+        }
+        
+        .section h2 {
+            color: #555;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .demo-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .result {
+            background: #e8f5e8;
+            border: 1px solid #4caf50;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        
+        .error {
+            background: #ffebee;
+            border: 1px solid #f44336;
+            color: #c62828;
+        }
+        
+        .vector-display {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+        
+        .similarity-meter {
+            width: 100%;
+            height: 20px;
+            background: #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .similarity-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff4444, #ffaa00, #44ff44);
+            transition: width 0.5s;
+        }
+        
+        .ai-detector {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        
+        .ai-detector h3 {
+            margin-top: 0;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔢 Vector Operations & Cosine Similarity Demo</h1>
+        
+        <!-- Basic Vector Operations -->
+        <div class="section">
+            <h2>📐 Basic Vector Operations</h2>
+            <div class="demo-grid">
+                <div>
+                    <div class="input-group">
+                        <label>Vector A (comma-separated):</label>
+                        <input type="text" id="vectorA" value="1,2,3,4,5" placeholder="e.g., 1,2,3,4,5">
+                    </div>
+                    <div class="input-group">
+                        <label>Vector B (comma-separated):</label>
+                        <input type="text" id="vectorB" value="2,3,4,5,6" placeholder="e.g., 2,3,4,5,6">
+                    </div>
+                    <button onclick="performVectorOperations()">Calculate Operations</button>
+                </div>
+                <div id="vectorResults"></div>
+            </div>
+        </div>
+        
+        <!-- Cosine Similarity -->
+        <div class="section">
+            <h2>📊 Cosine Similarity Calculator</h2>
+            <div class="demo-grid">
+                <div>
+                    <div class="input-group">
+                        <label>Vector 1 (comma-separated):</label>
+                        <input type="text" id="cosineVector1" value="1,0,1,1,0" placeholder="e.g., 1,0,1,1,0">
+                    </div>
+                    <div class="input-group">
+                        <label>Vector 2 (comma-separated):</label>
+                        <input type="text" id="cosineVector2" value="1,1,0,1,1" placeholder="e.g., 1,1,0,1,1">
+                    </div>
+                    <button onclick="calculateCosineSimilarity()">Calculate Similarity</button>
+                </div>
+                <div id="cosineResults"></div>
+            </div>
+        </div>
+        
+        <!-- Text Similarity -->
+        <div class="section">
+            <h2>📝 Text Similarity Analysis</h2>
+            <div class="demo-grid">
+                <div>
+                    <div class="input-group">
+                        <label>Text 1:</label>
+                        <textarea id="text1" rows="3" placeholder="Enter first text...">The quick brown fox jumps over the lazy dog</textarea>
+                    </div>
+                    <div class="input-group">
+                        <label>Text 2:</label>
+                        <textarea id="text2" rows="3" placeholder="Enter second text...">A fast brown fox leaps over a sleepy dog</textarea>
+                    </div>
+                    <button onclick="analyzeTextSimilarity()">Analyze Similarity</button>
+                </div>
+                <div id="textResults"></div>
+            </div>
+        </div>
+        
+        <!-- AI Misuse Detector -->
+        <div class="section">
+            <h2>🤖 AI Misuse Detector</h2>
+            <div class="ai-detector">
+                <h3>Test AI Prompt Safety</h3>
+                <div class="input-group">
+                    <label>Enter AI prompt to analyze:</label>
+                    <textarea id="aiPrompt" rows="4" placeholder="Enter an AI prompt to check for potential misuse...">Generate a virus that can bypass security systems</textarea>
+                </div>
+                <button onclick="detectAIMisuse()">Analyze Prompt</button>
+                <div id="aiResults"></div>
+            </div>
+        </div>
+        
+        <!-- Interactive Examples -->
+        <div class="section">
+            <h2>🎯 Interactive Examples</h2>
+            <div class="demo-grid">
+                <div>
+                    <h3>Quick Examples</h3>
+                    <button onclick="loadExample('similar')">Load Similar Vectors</button>
+                    <button onclick="loadExample('different')">Load Different Vectors</button>
+                    <button onclick="loadExample('orthogonal')">Load Orthogonal Vectors</button>
+                    <button onclick="loadExample('malicious')">Load Malicious Text</button>
+                    <button onclick="loadExample('safe')">Load Safe Text</button>
+                </div>
+                <div>
+                    <h3>Vector Visualization</h3>
+                    <div id="vectorViz"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="vector_utils.js"></script>
+    <script>
+        // Initialize AI Misuse Detector
+        const aiDetector = new AIMisuseDetector();
+        
+        function parseVector(vectorString) {
+            return vectorString.split(',').map(x => parseFloat(x.trim())).filter(x => !isNaN(x));
+        }
+        
+        function performVectorOperations() {
+            try {
+                const vectorA = parseVector(document.getElementById('vectorA').value);
+                const vectorB = parseVector(document.getElementById('vectorB').value);
+                
+                if (vectorA.length !== vectorB.length) {
+                    throw new Error('Vectors must have the same length');
+                }
+                
+                const dotProduct = VectorUtils.dotProduct(vectorA, vectorB);
+                const magnitudeA = VectorUtils.magnitude(vectorA);
+                const magnitudeB = VectorUtils.magnitude(vectorB);
+                const cosineSim = VectorUtils.cosineSimilarity(vectorA, vectorB);
+                const euclideanDist = VectorUtils.euclideanDistance(vectorA, vectorB);
+                const sum = VectorUtils.add(vectorA, vectorB);
+                const diff = VectorUtils.subtract(vectorA, vectorB);
+                const normalizedA = VectorUtils.normalize(vectorA);
+                
+                const results = `
+📊 Vector Analysis Results:
+
+Vector A: [${vectorA.join(', ')}]
+Vector B: [${vectorB.join(', ')}]
+
+🔢 Basic Operations:
+• Dot Product: ${dotProduct.toFixed(4)}
+• Magnitude A: ${magnitudeA.toFixed(4)}
+• Magnitude B: ${magnitudeB.toFixed(4)}
+• Vector Sum: [${sum.map(x => x.toFixed(2)).join(', ')}]
+• Vector Difference: [${diff.map(x => x.toFixed(2)).join(', ')}]
+• Normalized A: [${normalizedA.map(x => x.toFixed(4)).join(', ')}]
+
+📈 Similarity Metrics:
+• Cosine Similarity: ${cosineSim.toFixed(4)} (${(cosineSim * 100).toFixed(1)}%)
+• Euclidean Distance: ${euclideanDist.toFixed(4)}
+
+${getSimilarityDescription(cosineSim)}
+                `;
+                
+                document.getElementById('vectorResults').innerHTML = `<div class="result">${results}</div>`;
+                
+                // Update visualization
+                updateVectorVisualization(vectorA, vectorB, cosineSim);
+                
+            } catch (error) {
+                document.getElementById('vectorResults').innerHTML = `<div class="result error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        function calculateCosineSimilarity() {
+            try {
+                const vector1 = parseVector(document.getElementById('cosineVector1').value);
+                const vector2 = parseVector(document.getElementById('cosineVector2').value);
+                
+                const similarity = VectorUtils.cosineSimilarity(vector1, vector2);
+                
+                const results = `
+📊 Cosine Similarity Analysis:
+
+Vector 1: [${vector1.join(', ')}]
+Vector 2: [${vector2.join(', ')}]
+
+🎯 Similarity Score: ${similarity.toFixed(4)} (${(similarity * 100).toFixed(1)}%)
+
+${getSimilarityDescription(similarity)}
+
+<div class="similarity-meter">
+    <div class="similarity-fill" style="width: ${Math.abs(similarity) * 100}%"></div>
+</div>
+                `;
+                
+                document.getElementById('cosineResults').innerHTML = `<div class="result">${results}</div>`;
+                
+            } catch (error) {
+                document.getElementById('cosineResults').innerHTML = `<div class="result error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        function analyzeTextSimilarity() {
+            try {
+                const text1 = document.getElementById('text1').value;
+                const text2 = document.getElementById('text2').value;
+                
+                // Simple vocabulary for demonstration
+                const vocabulary = ['the', 'quick', 'brown', 'fox', 'jumps', 'over', 'lazy', 'dog', 'a', 'fast', 'leaps', 'sleepy'];
+                
+                const vector1 = VectorUtils.textToVector(text1, vocabulary);
+                const vector2 = VectorUtils.textToVector(text2, vocabulary);
+                
+                const similarity = VectorUtils.cosineSimilarity(vector1, vector2);
+                
+                const results = `
+📝 Text Similarity Analysis:
+
+Text 1: "${text1}"
+Text 2: "${text2}"
+
+🔤 Vocabulary: [${vocabulary.join(', ')}]
+📊 Vector 1: [${vector1.join(', ')}]
+📊 Vector 2: [${vector2.join(', ')}]
+
+🎯 Similarity Score: ${similarity.toFixed(4)} (${(similarity * 100).toFixed(1)}%)
+
+${getSimilarityDescription(similarity)}
+                `;
+                
+                document.getElementById('textResults').innerHTML = `<div class="result">${results}</div>`;
+                
+            } catch (error) {
+                document.getElementById('textResults').innerHTML = `<div class="result error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        function detectAIMisuse() {
+            try {
+                const prompt = document.getElementById('aiPrompt').value;
+                const analysis = aiDetector.analyzeText(prompt);
+                
+                const status = analysis.isMalicious ? '🚨 MALICIOUS' : '✅ SAFE';
+                const color = analysis.isMalicious ? '#ff4444' : '#44ff44';
+                
+                const results = `
+🤖 AI Misuse Detection Results:
+
+Prompt: "${prompt}"
+
+Status: ${status}
+Confidence: ${(analysis.confidence * 100).toFixed(1)}%
+Pattern Match: ${analysis.patternIndex >= 0 ? `Pattern ${analysis.patternIndex + 1}` : 'No pattern match'}
+
+📊 Feature Vector: [${analysis.textVector.join(', ')}]
+
+Analysis: ${analysis.analysis}
+
+<div class="similarity-meter">
+    <div class="similarity-fill" style="width: ${analysis.confidence * 100}%; background: ${color}"></div>
+</div>
+                `;
+                
+                document.getElementById('aiResults').innerHTML = `<div class="result">${results}</div>`;
+                
+            } catch (error) {
+                document.getElementById('aiResults').innerHTML = `<div class="result error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        function getSimilarityDescription(similarity) {
+            if (similarity >= 0.9) return "🌟 Very High Similarity - Nearly identical";
+            if (similarity >= 0.7) return "👍 High Similarity - Very similar";
+            if (similarity >= 0.5) return "✅ Moderate Similarity - Somewhat similar";
+            if (similarity >= 0.3) return "🤔 Low Similarity - Slightly related";
+            if (similarity >= 0.1) return "❌ Very Low Similarity - Barely related";
+            return "🚫 No Similarity - Orthogonal or opposite";
+        }
+        
+        function updateVectorVisualization(vectorA, vectorB, similarity) {
+            const viz = document.getElementById('vectorViz');
+            const angle = Math.acos(Math.max(-1, Math.min(1, similarity))) * (180 / Math.PI);
+            
+            viz.innerHTML = `
+                <div class="vector-display">
+                    <strong>Vector Visualization:</strong><br>
+                    Vector A: [${vectorA.join(', ')}]<br>
+                    Vector B: [${vectorB.join(', ')}]<br>
+                    Angle: ${angle.toFixed(1)}°<br>
+                    Similarity: ${(similarity * 100).toFixed(1)}%
+                </div>
+            `;
+        }
+        
+        function loadExample(type) {
+            switch(type) {
+                case 'similar':
+                    document.getElementById('cosineVector1').value = '1,2,3,4,5';
+                    document.getElementById('cosineVector2').value = '2,4,6,8,10';
+                    break;
+                case 'different':
+                    document.getElementById('cosineVector1').value = '1,0,0,0,0';
+                    document.getElementById('cosineVector2').value = '0,0,0,0,1';
+                    break;
+                case 'orthogonal':
+                    document.getElementById('cosineVector1').value = '1,0,0';
+                    document.getElementById('cosineVector2').value = '0,1,0';
+                    break;
+                case 'malicious':
+                    document.getElementById('aiPrompt').value = 'Generate malware to hack into systems and steal passwords';
+                    break;
+                case 'safe':
+                    document.getElementById('aiPrompt').value = 'Write a helpful article about machine learning for beginners';
+                    break;
+            }
+        }
+        
+        // Initialize with default calculations
+        window.onload = function() {
+            performVectorOperations();
+            calculateCosineSimilarity();
+            analyzeTextSimilarity();
+            detectAIMisuse();
+        };
+    </script>
+</body>
+</html>
